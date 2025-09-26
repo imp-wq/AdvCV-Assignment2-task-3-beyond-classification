@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-from transformers import AutoProcessor, AutoModelForCausalLM
+from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 # ----------------------------- Config -----------------------------
 SEED = 2025
@@ -100,10 +100,15 @@ def main(split):
 
     print(f"[Info] Loading model: {MODEL_NAME} on {device}")
     processor = AutoProcessor.from_pretrained(MODEL_NAME, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto", trust_remote_code=True
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    MODEL_NAME,
+    dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+    device_map="auto",
+    attn_implementation="sdpa",   # 更稳的注意力后端
     )
+    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+
+
     model.eval()
 
     # 载入样本（与上一步顺序一致）
