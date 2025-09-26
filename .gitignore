@@ -1,0 +1,7 @@
+# Ignore everything in coco but keep the folder
+/data/coco/*
+!/data/coco/.gitkeep
+
+# Ignore everything in out but keep the folder
+/out/*
+!/out/.gitkeep
