@@ -60,13 +60,40 @@ def crop_box(img_path, box):
 @torch.inference_mode()
 def next_token_logits(model, processor, images, texts, device):
     """
-    对一批 (image, text) 获取“下一 token（首个生成 token）”的 logits。
-    返回：list[np.ndarray]，每个是 [vocab_size] 的向量
+    images: List[PIL.Image.Image]
+    texts:  List[str]  # 与 images 一一对应
+    返回：List[np.ndarray]，每个 [vocab_size]
     """
-    inputs = processor(images=images, text=texts, return_tensors="pt").to(device)
-    # 对于 decoder-only 模型，最后一个位置的 logits 即下一 token 分布
+    # 1) 组装对话（每条样本一个会话）
+    chats = []
+    for img, txt in zip(images, texts):
+        chats.append([
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": img},
+                    {"type": "text", "text": txt}
+                ],
+            }
+        ])
+
+    # 2) 生成带图片占位符的模板化文本（不要直接 tokenize）
+    templated_texts = processor.apply_chat_template(
+        chats,
+        add_generation_prompt=True,
+        tokenize=False  # 关键：先得到字符串，下一步再和 images 一起处理
+    )
+
+    # 3) 用 processor 同时处理文本 + 图像，保证“占位符数 == 图像特征数”
+    inputs = processor(
+        text=templated_texts,
+        images=images,
+        return_tensors="pt",
+        padding=True
+    ).to(device)
+
+    # 4) 前向并取“下一 token”的分布
     out = model(**inputs)
-    # out.logits: [B, T, V]
     logits = out.logits[:, -1, :]  # [B, V]
     return [x.detach().cpu().float().numpy() for x in logits.unbind(dim=0)]
 
